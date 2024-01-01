@@ -11,11 +11,12 @@
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
-        <flink.version>1.15.0</flink.version>
+        <flink.version>1.16.3</flink.version>
         <scala.binary.version>2.12</scala.binary.version>
     </properties>
 
     <dependencies>
+        <!--        需要与本地 从flink官网下载的jar版本一致 -->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-java</artifactId>

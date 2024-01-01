@@ -2,7 +2,6 @@ package wordcount;
 
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.client.program.StreamContextEnvironment;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.Collector;
@@ -15,7 +14,7 @@ import org.apache.flink.util.Collector;
 public class StreamWordCount {
     public static void main(String[] args) throws Exception {
         // 创建流处理执行环境
-        StreamExecutionEnvironment env = StreamContextEnvironment.getExecutionEnvironment();
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         // 设置并行度，默认值 = 当前计算机的CPU逻辑核数（设置成1即单线程处理）
         // env.setMaxParallelism(32);

@@ -12,6 +12,8 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.util.Collector;
 
+import java.time.Duration;
+
 /**
  * @author ：Yunchenyan
  * @date ：Created in 2024/11/27 23:07
@@ -32,8 +34,7 @@ public class KeyProcessFunctionDemo {
             }
         })
                 .assignTimestampsAndWatermarks(
-                        // 指定watermark生成，升序的waterMark，没有等待时间
-                        WatermarkStrategy.<WaterSensor>forMonotonousTimestamps()
+                        WatermarkStrategy.<WaterSensor>forBoundedOutOfOrderness(Duration.ofSeconds(3))
                                 // 指定时间戳分配器 从数据中提取
                                 .withTimestampAssigner(new SerializableTimestampAssigner<WaterSensor>() {
                                     @Override
@@ -55,35 +56,80 @@ public class KeyProcessFunctionDemo {
                      */
                     @Override
                     public void processElement(WaterSensor waterSensor, Context context, Collector<String> collector) throws Exception {
-                        // 数据提取出来的事件时间，如果没定义事件时间的提取方法 为null
-                        Long timestamp = context.timestamp();
-
                         TimerService timerService = context.timerService();
-                        // 注册事件时间定时器
-                        timerService.registerEventTimeTimer(5000);
-                        // 注册处理事件定时器
-//                        timerService.registerProcessingTimeTimer();
-
-                        // 删除定时器
-//                        timerService.deleteEventTimeTimer();
-//                        timerService.deleteProcessingTimeTimer();
-                        System.out.println("当前key=" + context.getCurrentKey() + "时间戳=" + context.timestamp() + "注册了一个5s定时器");
-                    }
-
-                    /**
-                     * 时间进展到定时器注册的时间的时候，触发
-                     * @param ctx 上下文
-                     * @param out 采集器
-                     * @param timestamp 当前时间进展
-                     */
-                    @Override
-                    public void onTimer(long timestamp, OnTimerContext ctx, Collector<String> out) throws Exception {
-                        System.out.println("现在时间是" + timestamp + "定时器触发");
+                        System.out.println("当前key=" + context.getCurrentKey() + "watermark=" + timerService.currentWatermark());
                     }
 
                 }).print();
 
 
         env.execute();
+    }
+}
+
+class EventTimeKeyedProcessFunction extends KeyedProcessFunction<String, WaterSensor, String> {
+
+    /**
+     * 每一个数据到来的时候处理
+     *
+     * @param collector
+     * @param context
+     */
+    @Override
+    public void processElement(WaterSensor waterSensor, Context context, Collector<String> collector) throws Exception {
+        // 数据提取出来的事件时间，如果没定义事件时间的提取方法 为null
+        Long timestamp = context.timestamp();
+
+        TimerService timerService = context.timerService();
+        // 注册事件时间定时器
+        timerService.registerEventTimeTimer(5000);
+        // 注册处理事件定时器
+//                        timerService.registerProcessingTimeTimer();
+
+        // 删除定时器
+//                        timerService.deleteEventTimeTimer();
+//                        timerService.deleteProcessingTimeTimer();
+        System.out.println("当前key=" + context.getCurrentKey() + "时间戳=" + context.timestamp() + "注册了一个5s定时器");
+    }
+
+    /**
+     * 时间进展到定时器注册的时间的时候，触发
+     *
+     * @param ctx       上下文
+     * @param out       采集器
+     * @param timestamp 当前时间进展
+     */
+    @Override
+    public void onTimer(long timestamp, OnTimerContext ctx, Collector<String> out) throws Exception {
+        System.out.println("现在时间是" + timestamp + "定时器触发");
+    }
+
+}
+
+class ProcessTimeKeyedProcessFunction extends KeyedProcessFunction<String, WaterSensor, String> {
+    /**
+     * 每一个数据到来的时候处理
+     * @param collector
+     * @param context
+     *
+     */
+    @Override
+    public void processElement(WaterSensor waterSensor, Context context, Collector<String> collector) throws Exception {
+        TimerService timerService = context.timerService();
+
+        long currentProcessingTime = timerService.currentProcessingTime();
+        timerService.registerProcessingTimeTimer(currentProcessingTime + 5000L);
+        System.out.println("当前key=" + context.getCurrentKey() + "时间戳=" + currentProcessingTime + "注册了一个5s后的定时器");
+    }
+
+    /**
+     * 时间进展到定时器注册的时间的时候，触发
+     * @param ctx 上下文
+     * @param out 采集器
+     * @param timestamp 当前时间进展
+     */
+    @Override
+    public void onTimer(long timestamp, OnTimerContext ctx, Collector<String> out) throws Exception {
+        System.out.println("现在时间是" + timestamp + "定时器触发");
     }
 }

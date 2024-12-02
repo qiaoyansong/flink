@@ -1,10 +1,10 @@
 package transfer;
 
 import bean.Event;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
-import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -22,40 +22,50 @@ public class ReduceDemo {
         env.setParallelism(1);
 
 
-        DataStreamSource<Event> inputDataStream = env.fromElements(
-                new Event("Mary", "./home", 1000L),
-                new Event("Bob", "./cart", 2000L),
-                new Event("Bob", "./cart", 3000L)
-        );
+//        DataStreamSource<Event> inputDataStream = env.fromElements(
+//                new Event("Mary", "./home", 1000L),
+//                new Event("Bob", "./cart", 2000L),
+//                new Event("Bob", "./cart", 3000L)
+//        );
 
-        KeyedStream<Event, String> keyedStream = inputDataStream.keyBy(new KeySelector<Event, String>() {
+        /**
+         * Mary,./home,1000
+         * Bob,./cart,2000
+         * Bob,./cart,3000
+         */
+        SingleOutputStreamOperator<Event> dataStreamSource = env.socketTextStream("localhost", 9999)
+                .map(new MapFunction<String, Event>() {
+                    @Override
+                    public Event map(String value) throws Exception {
+                        String[] split = value.split(",");
+                        return new Event(split[0], split[1], Long.valueOf(split[2]));
+                    }
+                });
+
+        KeyedStream<Event, String> keyedStream = dataStreamSource.keyBy(new KeySelector<Event, String>() {
             @Override
             public String getKey(Event event) throws Exception {
                 return event.user;
             }
         });
 
-        SingleOutputStreamOperator<Event> reduce1 = keyedStream.reduce(new AggregationFunction<Event>() {
+        SingleOutputStreamOperator<Event> reduce = keyedStream.reduce(new AggregationFunction<Event>() {
             @Override
             public Event reduce(Event event, Event t1) throws Exception {
-                System.out.println("reduce1" + "event1=" + event);
-                System.out.println("reduce1" + "event2=" + t1);
+                System.out.println("reduce1，event1=" + event);
+                System.out.println("reduce1，event2=" + t1);
                 return new Event(event.user, t1.url, event.timestamp + t1.timestamp);
             }
-        });
-
-        // 为每一条数据分配同一个 key，将聚合结果发送到一条流中去
-        SingleOutputStreamOperator<Event> reduce2 = reduce1.keyBy(r -> true).reduce(new AggregationFunction<Event>() {
+        }).keyBy(e -> true).reduce(new AggregationFunction<Event>() {
             @Override
             public Event reduce(Event value1, Event value2) throws Exception {
-                System.out.println("reduce2" + "event1=" + value1);
-                System.out.println("reduce2" + "event2=" + value2);
-                // 将累加器更新为当前最大的 pv 统计值，然后向下游发送累加器的值
+                System.out.println("reduce2，event1=" + value1);
+                System.out.println("reduce2，event2=" + value2);
                 return value1.timestamp > value2.timestamp ? value1 : value2;
             }
         });
 
-        DataStreamSink<Event> sink = reduce2.print();
+        DataStreamSink<Event> sink = reduce.print();
 
         // 执行任务
         env.execute();

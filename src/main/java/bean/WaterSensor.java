@@ -57,6 +57,15 @@ public class WaterSensor {
     }
 
     @Override
+    public String toString() {
+        return "WaterSensor{" +
+                "id='" + id + '\'' +
+                ", ts=" + ts +
+                ", vc=" + vc +
+                '}';
+    }
+
+    @Override
     public int hashCode() {
         return Objects.hash(getId(), getTs(), getVc());
     }
